@@ -1,0 +1,6 @@
+@RealState_HostAddress = http://localhost:5197
+
+GET {{RealState_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
