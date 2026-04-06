@@ -1,12 +1,12 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using RealState.Data.Persistence;
+using RealState.Data.Repositories;
 using RealState.Data.Settings;
 using RealState.Services.Abstractions;
-using RealState.Services.Repositories;
 
-namespace RealState.Services.Extensions
+namespace RealState.Data.Extensions
 {
     public static class ServiceCollectionExtensions
     {
@@ -24,7 +24,6 @@ namespace RealState.Services.Extensions
                 return new MongoContext(client, settings.DatabaseName);
             });
 
-            // repositorio
             services.AddScoped<IPropertyRepository, PropertyRepository>();
 
             return services;

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using RealState.Services.Abstractions;
 using RealState.Services.Dtos;
 using System.Net;
@@ -6,18 +6,19 @@ using System.Net;
 namespace RealState.Api.Controllers
 {
     /// <summary>
-    /// Controller responsible for exposing endpoints related to property management.
-    /// Provides filtering, pagination, and detailed retrieval of properties.
+    /// Exposes endpoints for retrieving property listings and detail.
+    /// Thin controller: delegates all logic to <see cref="IPropertyService"/>.
+    /// Exceptions are handled globally by <c>ExceptionHandlingMiddleware</c>.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class PropertiesController : ControllerBase
     {
-        private readonly IPropertyRepository _propertyRepository;
+        private readonly IPropertyService _propertyService;
 
-        public PropertiesController(IPropertyRepository propertyRepository)
+        public PropertiesController(IPropertyService propertyService)
         {
-            _propertyRepository = propertyRepository;
+            _propertyService = propertyService;
         }
 
         /// <summary>
@@ -32,11 +33,9 @@ namespace RealState.Api.Controllers
         /// <returns>A paginated list of properties matching the filter criteria.</returns>
         /// <response code="200">Properties retrieved successfully.</response>
         /// <response code="400">Invalid query parameters.</response>
-        /// <response code="500">Internal server error.</response>
         [HttpGet]
         [ProducesResponseType(typeof(PagedResult<PropertyDto>), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(string), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ProblemDetails), (int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> GetProperties(
             [FromQuery] string? name,
             [FromQuery] string? address,
@@ -45,27 +44,9 @@ namespace RealState.Api.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-
-            try
-            {
-                if (page <= 0)
-                    return BadRequest("Page number must be greater than zero.");
-
-                if (pageSize <= 0 || pageSize > 100)
-                    return BadRequest("Page size must be between 1 and 100.");
-
-                if (minPrice.HasValue && maxPrice.HasValue && minPrice > maxPrice)
-                    return BadRequest("Minimum price cannot be greater than maximum price.");
-
-                var result = await _propertyRepository.GetPropertiesAsync(name, address, minPrice, maxPrice, page, pageSize);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An internal server error occurred while retrieving properties. {ex}");
-            }
+            var result = await _propertyService.GetPropertiesAsync(name, address, minPrice, maxPrice, page, pageSize);
+            return Ok(result);
         }
-
 
         /// <summary>
         /// Retrieves a specific property by its unique identifier.
@@ -73,34 +54,16 @@ namespace RealState.Api.Controllers
         /// <param name="id">The property unique ID.</param>
         /// <returns>Property details.</returns>
         /// <response code="200">Property found successfully.</response>
-        /// <response code="404">No property found with the specified ID.</response>
         /// <response code="400">Invalid or missing property ID.</response>
-        /// <response code="500">Internal server error.</response>
+        /// <response code="404">No property found with the specified ID.</response>
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(PropertyDto), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(string), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(string), (int)HttpStatusCode.InternalServerError)]
-        public async Task<ActionResult<PropertyDto>> GetPropertyById(string id)
+        [ProducesResponseType(typeof(ProblemDetails), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), (int)HttpStatusCode.NotFound)]
+        public async Task<IActionResult> GetPropertyById(string id)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(id))
-                    return BadRequest("The property ID is required.");
-
-                var property = await _propertyRepository.GetByIdAsync(id);
-
-                if (property == null)
-                {
-                    return NotFound($"No property found with ID '{id}'.");
-                }
-
-                return Ok(property);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An internal server error occurred while retrieving the property.{ex}");
-            }
+            var property = await _propertyService.GetByIdAsync(id);
+            return Ok(property);
         }
     }
 }

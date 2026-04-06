@@ -3,7 +3,7 @@ using MongoDB.Driver;
 using Moq;
 using RealState.Data.Entities;
 using RealState.Data.Persistence;
-using RealState.Services.Repositories;
+using RealState.Data.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,6 +1,7 @@
-using RealState.Services.Extensions;
-using RealState.Services.Repositories;
+using RealState.Api.Middleware;
+using RealState.Data.Extensions;
 using RealState.Services.Abstractions;
+using RealState.Services.Services;
 
 namespace RealState.Api
 {
@@ -33,24 +34,22 @@ namespace RealState.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            builder.Services.AddScoped<IPropertyRepository, PropertyRepository>();
+            builder.Services.AddScoped<IPropertyService, PropertyService>();
 
             var app = builder.Build();
+
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
 
             app.UseCors(MyAllowSpecificOrigins);
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
 
             app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
 
             app.MapControllers();
 

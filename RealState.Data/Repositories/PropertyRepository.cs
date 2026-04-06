@@ -1,11 +1,11 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using RealState.Data.Entities;
 using RealState.Data.Persistence;
 using RealState.Services.Abstractions;
 using RealState.Services.Dtos;
 
-namespace RealState.Services.Repositories
+namespace RealState.Data.Repositories
 {
 
     /// <summary>
@@ -25,28 +25,12 @@ namespace RealState.Services.Repositories
         public PropertyRepository(IMongoContext context)
         {
             _collection = context.GetCollection<Property>(CollectionName);
-            Console.WriteLine($"[MongoDB] Conectado a la colección: {CollectionName}");
         }
 
 
         /// <summary>
         /// Retrieves a paged list of properties as <see cref="PropertyDto"/> using optional filters.
         /// </summary>
-        /// <param name="name">Optional case-insensitive regex filter applied to the property name.</param>
-        /// <param name="address">Optional case-insensitive regex filter applied to the address.</param>
-        /// <param name="minPrice">Optional lower bound for property price (inclusive).</param>
-        /// <param name="maxPrice">Optional upper bound for property price (inclusive).</param>
-        /// <param name="page">1-based page index. Defaults to 1.</param>
-        /// <param name="pageSize">Number of items per page. Defaults to 10.</param>
-        /// <returns>
-        /// A <see cref="PagedResult{T}"/> containing the current page of <see cref="PropertyDto"/>,
-        /// total count, page index, and page size.
-        /// </returns>
-        /// <remarks>
-        /// This method builds a composable MongoDB filter, counts matching documents for pagination,
-        /// then projects only the fields required by <see cref="PropertyDto"/>.
-        /// Robust parsing helpers are used to protect against inconsistent types in stored documents.
-        /// </remarks>
         public async Task<PagedResult<PropertyDto>> GetPropertiesAsync(
             string? name = null,
             string? address = null,
@@ -78,6 +62,7 @@ namespace RealState.Services.Repositories
             // Proyección robusta: saca los campos anidados y controla tipos
             var projection = new BsonDocument
             {
+                { "Id", "$_id" },
                 { "IdOwner", "$Owner.Id" },
                 { "Name", "$Name" },
                 { "Address", "$Address" },
@@ -115,6 +100,7 @@ namespace RealState.Services.Repositories
 
             var data = raw.Select(doc => new PropertyDto
             {
+                Id = GetString(doc, "Id") ?? string.Empty,
                 IdOwner = GetString(doc, "IdOwner"),
                 Name = GetString(doc, "Name") ?? string.Empty,
                 Address = GetString(doc, "Address") ?? string.Empty,
@@ -134,14 +120,6 @@ namespace RealState.Services.Repositories
         /// <summary>
         /// Retrieves a single property by its string identifier and maps it to <see cref="PropertyDto"/>.
         /// </summary>
-        /// <param name="id">The string identifier of the property document.</param>
-        /// <returns>
-        /// A populated <see cref="PropertyDto"/> if found; otherwise <c>null</c>.
-        /// </returns>
-        /// <remarks>
-        /// This method intentionally reads as a raw <see cref="BsonDocument"/> to tolerate
-        /// inconsistent field types and nested shapes (e.g., Owner.Id being a string or ObjectId).
-        /// </remarks>
         public async Task<PropertyDto?> GetByIdAsync(string id)
         {
             var filter = Builders<Property>.Filter.Eq(p => p.Id, id);
@@ -182,11 +160,16 @@ namespace RealState.Services.Repositories
                     imageFile = fileVal.AsString;
             }
 
+            string propertyId = raw.TryGetValue("_id", out var oid)
+                ? (oid.IsObjectId ? oid.AsObjectId.ToString() : oid.ToString() ?? string.Empty)
+                : string.Empty;
+
             var dto = new PropertyDto
             {
+                Id = propertyId,
                 IdOwner = idOwner ?? string.Empty,
-                Name = raw.GetValue("Name", "").AsString,
-                Address = raw.GetValue("Address", "").AsString,
+                Name = raw.GetValue("Name", "").AsString ?? string.Empty,
+                Address = raw.GetValue("Address", "").AsString ?? string.Empty,
                 Price = price,
                 Image = imageFile
             };
